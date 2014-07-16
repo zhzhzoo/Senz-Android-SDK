@@ -1,7 +1,7 @@
 package com.senz.sdk.service;
 
 import android.app.AlarmManager;
-import android.add.Service;
+import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
@@ -16,6 +16,7 @@ import android.os.IBinder;
 import android.os.Intent;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import com.senz.sdk.service.TelepathyPeriod;
 import com.senz.sdk.utils.L;
 
@@ -24,21 +25,21 @@ public class SenzService extends Service {
     public static final int MSG_START_TELEPATHY = 1;
     public static final int MSG_STOP_TELEPATHY = 2;
     public static final int MSG_TELEPATHY_RESPONSE = 3;
-    public static final int MSG_REGISTER_ERROR_LISTENER = 4;
-    public static final int MSG_ERROR_RESPONSE = 5;
-    public static final int MSG_SET_SCAN_PERIOD = 6;
+    public static final int MSG_ERROR_RESPONSE = 4;
+    public static final int MSG_SET_SCAN_PERIOD = 5;
     private final Messenger mMessenger;
     private final BluetoothAdapter.LeScanCallback mLeScanCallback;
+    private Messenger mReplyTo;
     private AlarmManager mAlarmManager;
     private BluetoothAdapter mAdapter;
-    private ConcurrentHashMap mBeaconsInACycle;
-    private ConcurrentHashMap mBeaconsNearBy;
+    private ConcurrentHashMap<Beacon, boolean> mBeaconsInACycle;
+    private ConcurrentHashMap<Beacon, boolean> mBeaconsNearBy;
     private TelepathyPeriod mTelepathyPeriod;
     private Runnable mAfterScanTask;
     private Handler mHandler;
     private HandlerThread mHandlerThread;
     private boolean mScanning;
-    private boolean mAssigned;
+    private boolean mStarted;
 
     public SenzService() {
         this.mMessenger = new Messenger(new IncomingHandler(null));
@@ -48,6 +49,7 @@ public class SenzService extends Service {
         this.mTelepathyPeriod = new TelepathyPeriod(TimeUnit.SECONDS.toMillis(1L),
                                                     TimeUnit.SECONDS.toMillis(0L),
                                                     TimeUnit.SECONDS.toMillis(10L));
+        this.mStartCount = new AtomicInteger();
     }
 
     public void onCreate() {
@@ -162,7 +164,7 @@ public class SenzService extends Service {
         return new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                BeaconService.this.handler.post(BeaconService.this.afterScanCycleTask);
+                SenzService.this.handler.post(SenzService.this.afterScanCycleTask);
             }
         }
     }
@@ -171,10 +173,10 @@ public class SenzService extends Service {
         return new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                BeaconService.this.handler.post(new Runnable() {
+                SenzService.this.handler.post(new Runnable() {
                     @Override
                     public void run() {
-                        BeaconService.this.startScanning();
+                        SenzService.this.startScanning();
                     }
                 });
             }
@@ -190,7 +192,7 @@ public class SenzService extends Service {
                 L.v("Device" + device + "is not a beacon");
                 return;
             }
-            BeaconService.this.mBeaconsInACycle.put(beacon);
+            SenzService.this.mBeaconsInACycle.put(beacon, true);
         }
     }
 
@@ -200,19 +202,53 @@ public class SenzService extends Service {
             final int what = msg.what;
             final Bundle bundle = msg.getData();
             final Messenger replyTo = msg.replyTo;
-            BeaconService.this.handler.post(new Runnable() {
+            SenzService.this.handler.post(new Runnable() {
                 @Override
                 public void Run() {
                     switch (what) {
                         case MSG_START_TELEPATHY:
+                            SenzService.this.mStarted = true;
+                            SenzService.this.mReplyTo = replyTo;
+                            startScanning();
+                            break;
                         case MSG_STOP_TELEPATHY:
-                        case MSG_TELEPATHY_RESPONSE:
-                        case MSG_REGISTER_ERROR_LISTENER:
-                        case MSG_ERROR_RESPONSE:
+                            SenzService.this.mStarted = false;
+                            stopScanning();
+                            break;
                         case MSG_SET_SCAN_PERIOD:
+                            bundle.setClassLoader(TelepathyPeriod.class.getClassLoader());
+                            SenzService.this.mScanPeriod = (TelepathyPeriod) bundle.getParcelable("telepathyPeriod");
+                            L.d("Setting scan period: " + SenzService.this.mScanPeriod);
+                            break;
                     }
                 }
             });
+        }
+    }
+
+    private class AfterScanCycleTask implements Runnable {
+        @Override
+        public void run() {
+            SenzService.this.stopScanning();
+
+            ArrayList<Beacon> beacons = new ArrayList<Beacon>();
+            Message response = Message.obtain(null, MSG_TELEPATHY_RESPONSE);
+            for (Map.Entry<Beacon, boolean> e : SenzService.this.mBeaconsInACycle)
+                beacons.add(e.getKey());
+            response.getData().putParcelableArrayList("beacons", beacons);
+            try {
+                mReplyTo.send(response);
+            }
+            catch (RemoteException e) {
+                L.e("Error while delivering responses", e);
+            }
+
+            SenzService.this.mBeaconsInACycle.clear();
+            if (SenzService.this.mScanPeriod.waitMillis == 0L)
+                SenzService.this.startScanning();
+            else
+                SenzService.this.setAlarm(SenzService.this.startScanBroadcastPendingIntent,
+                                          SenzService.this.mScanPeriod.waitMillis);
         }
     }
 };

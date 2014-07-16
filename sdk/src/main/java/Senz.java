@@ -9,54 +9,66 @@ class Senz {
     private Beacon mBeacon;
     private Contezt mContezt;
 
-    private void setBeacon(UUID uuid, String mac, int major, int minor, int mpower, int rssi) {
-        this.mBeacon = new Beacon(uuid, mac, major, minor, mpower, rssi);
+    private void setBeacon(Beacon beacon) {
+        this.mBeacon = beacon;
+    }
+
+    private void setBeaconParams(UUID uuid, String mac, int major, int minor, int mpower, int rssi) {
+        this.setBeacon(new Beacon(uuid, mac, major, minor, mpower, rssi));
     }
 
     private void setContezt(Contezt contezt) {
         this.mContezt = contezt;
     }
 
-    protected Senz(UUID uuid, String mac, int major, int minor, int mpower, int rssi, ConteztReadyCallback cb) {
-        this.setBeacon(uuid, mac, major, minar, mpower, rssi);
-        this.setContezt(AVUtils.QueryContezt(mBeacon), new QueryCompleteCallback() {
+    private Senz(Beacon beacon, Contezt contezt) {
+        this.setBeacon(beacon);
+        this.setContezt(contezt);
+    }
+
+    private Senz(UUID uuid, String mac, int major, int minor, int mpower, int rssi, Contezt contezt) {
+        this.setBeaconParams(uuid, mac, major, minar, mpower, rssi);
+        this.setContezt(contezt);
+    }
+
+    public static void fromBeacon(Beacon beacon, SenzReadyCallback cb) {
+        AVUtils.queryContezt(beacon, new AVUtils.QueryCompleteCallback() {
             @Override
-            public void onQueryComplete(Object o) {
-                cb.onConteztReady(o);
+            public void onQueryComplete(Contezt contezt) {
+                cb.onSenzReady(new Senz(beacon, contezt));
             }
         });
     }
 
     public UUID getUUID() {
-        return this.mUUID;
+        return this.mBeacon.getUUID();
     }
 
     public String getMAC() {
-        return this.mMAC;
+        return this.mBeacon.getMAC();
     }
 
     public int getMajor() {
-        return this.mMajor;
+        return this.mBeacon.getMajor();
     }
 
     public int getMinor() {
-        return this.mMinor;
+        return this.mBeacon.getMinor();
     }
 
     public int getMPower() {
-        return this.mMPower;
+        return this.mBeacon.getMPower();
     }
 
     public int getRSSI() {
-        return this.mRSSI;
+        return this.mBeacon.getRSSI();
     }
 
     public Contezt getContezt() {
         return this.Contezt;
     }
 
-    public abstract static interface ConteztReadyCallback {
-        public abstract void onConteztReady(Senz senz) {
-        }
+    public interface SenzReadyCallback {
+        public void onSenzReady(Senz senz);
     }
 }

@@ -15,15 +15,15 @@ final class PackageContezt extends Contezt implements Parcelable {
         this.mPackageName = in.readString();
     }
 
-    protected void writeToParcelRemaining(Parcel out, int flags) {
-        out.writeString(mPackageName);
+    protected AVObject toAVObject() {
+        AVObject avo = new AVObject("contezt");
+        avo.putString("what", this.what());
+        avo.putString("packageName", mPackageName);
+        return avo;
     }
 
-    protected AVObject toAVObject() {
-        AVObject avo = new AVObject();
-        avo.put("what", this.what());
-        avo.put("packageName", this.getPackageName());
-        return avo;
+    protected void writeToParcelRemaining(Parcel out, int flags) {
+        out.writeString(mPackageName);
     }
 
     public static String what() {

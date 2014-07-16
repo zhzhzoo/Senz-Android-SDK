@@ -19,13 +19,10 @@ abstract class Contezt implements Parcelable {
     abstract protected void writeToParcelRemaining(Parcel out, int flags) {
     }
 
-    abstract protected toAVObject() {
-    }
-
     abstract static String what() {
     }
 
-    private static Contezt NewInstanceThroughConstructor(String what, Object arg) {
+    private static Contezt newInstanceThroughConstructor(String what, Object arg) {
         Class<?> clazz;
         Constructor<?> ctor;
 
@@ -54,13 +51,13 @@ abstract class Contezt implements Parcelable {
         }
     }
 
-    protected static Contezt FromAVObject(AVObject avo) {
-        return NewInstanceThroughConstructor(avo.getString("what"));
+    protected static Contezt fromAVObject(AVObject avo) {
+        return avo == null ? null : NewInstanceThroughConstructor(avo.getString("what"));
     }
 
-    protected static Contezt FromParcel(Parcel in) {
+    protected static Contezt fromParcel(Parcel in) {
         // first element in `in' is `what'
-        return NewInstanceThroughConstructor(in.readString(), in);
+        return in == null ? null : NewInstanceThroughConstructor(in.readString(), in);
     }
 
     public static final Parcelable.Creator<Contezt> CREATOR
