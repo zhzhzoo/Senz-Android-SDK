@@ -1,15 +1,20 @@
 package com.senz.sdk.avos;
 
-import com.avoscloud.AVObject;
-import com.avoscloud.AVQuery;
+import java.util.List;
+import com.avos.avoscloud.AVObject;
+import com.avos.avoscloud.AVQuery;
+import com.avos.avoscloud.AVException;
+import com.avos.avoscloud.GetCallback;
+import com.avos.avoscloud.FindCallback;
 import com.senz.sdk.Beacon;
-import com.senz.sdk.Contezt;
+import com.senz.sdk.contezt.Contezt;
+import com.senz.sdk.utils.L;
 
 public class AVUtils {
     public static void initAVOS() {
     }
 
-    public static void queryContezt(Beacon beacon, QueryCompleteCallback cb) {
+    public static void queryContezt(final Beacon beacon, final QueryConteztCompleteCallback cb) {
         queryBeacon(beacon, new FindCallback<AVObject>() {
             @Override
             public void done(List<AVObject> results, AVException e) {
@@ -20,7 +25,7 @@ public class AVUtils {
                 else if (results.size() == 0)
                     cb.onComplete(null);
                 else {
-                    AVObject avoBeacon = results[0];
+                    AVObject avoBeacon = results.get(0);
                     avoBeacon.getAVObject("contezt").fetchIfNeededInBackground(
                         new GetCallback<AVObject>() {
                             @Override
@@ -48,7 +53,7 @@ public class AVUtils {
         query.findInBackground(cb);
     }
 
-    public interface QueryCompleteCallback() {
-        public void onComplete(AVObject avo);
+    public interface QueryConteztCompleteCallback {
+        public void onComplete(Contezt o);
     }
 }

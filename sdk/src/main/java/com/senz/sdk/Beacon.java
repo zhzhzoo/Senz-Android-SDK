@@ -1,19 +1,60 @@
 package com.senz.sdk;
 
 import android.bluetooth.BluetoothDevice;
+import android.os.Parcelable;
+import android.os.Parcel;
 import java.util.UUID;
 import com.senz.sdk.Utils;
 
-protected class Beacon implements Parcelable {
+public class Beacon implements Parcelable {
 
-    private final UUID mUUID;
-    private final String mMAC;
-    private final int mMajor;
-    private final int mMinor;
-    private final int mMPower;
-    private final int mRSSI;
+    private UUID mUUID;
+    private String mMAC;
+    private int mMajor;
+    private int mMinor;
+    private int mMPower;
+    private int mRSSI;
 
-    private void Beacon(UUID uuid, String mac, int major, int minor, int mpower, int rssi) {
+    @Override
+    public void writeToParcel(Parcel out, int flags) {
+        out.writeLong(mUUID.getMostSignificantBits());
+        out.writeLong(mUUID.getLeastSignificantBits());
+        out.writeString(mMAC);
+        out.writeInt(mMajor);
+        out.writeInt(mMinor);
+        out.writeInt(mMPower);
+        out.writeInt(mRSSI);
+    }
+
+    @Override
+    public int describeContents() {
+        return 0;
+    }
+
+    public static final Parcelable.Creator<Beacon> CREATOR
+        = new Parcelable.Creator<Beacon>() {
+            public Beacon createFromParcel(Parcel in) {
+                return new Beacon(in);
+            }
+
+            public Beacon[] newArray(int size) {
+                return new Beacon[size];
+            }
+        };
+
+    public Beacon(Parcel in) {
+        long hi, lo;
+        hi = in.readLong();
+        lo = in.readLong();
+        this.mUUID = new UUID(hi, lo);
+        this.mMAC = in.readString();
+        this.mMajor = in.readInt();
+        this.mMinor = in.readInt();
+        this.mMPower = in.readInt();
+        this.mRSSI = in.readInt();
+    }
+
+    public Beacon(UUID uuid, String mac, int major, int minor, int mpower, int rssi) {
         this.mUUID = uuid;
         this.mMAC = mac;
         this.mMajor = major;
@@ -22,7 +63,7 @@ protected class Beacon implements Parcelable {
         this.mRSSI = rssi;
     }
 
-    protected static Beacon fromLeScan(BluetoothDevice device, int rssi, byte[] scanResult) {
+    public static Beacon fromLeScan(BluetoothDevice device, int rssi, byte[] scanResult) {
         int len, i;
 
         for (i = 0; i < scanResult.length; i++) {
@@ -59,7 +100,7 @@ protected class Beacon implements Parcelable {
                                                           scanResult[i + 20],
                                                           scanResult[i + 21]));
                 int major = Utils.intFrom2Bytes(scanResult[i + 22], scanResult[i + 23]);
-                int major = Utils.intFrom2Bytes(scanResult[i + 24], scanResult[i + 25]);
+                int minor = Utils.intFrom2Bytes(scanResult[i + 24], scanResult[i + 25]);
                 int mpower = scanResult[i + 26];
 
                 return new Beacon(uuid, device.getAddress(), major, minor, mpower, rssi);
@@ -85,10 +126,10 @@ protected class Beacon implements Parcelable {
     }
 
     public int getMPower() {
-        return mMPower();
+        return mMPower;
     }
 
     public int getRSSI() {
-        return mRSSI();
+        return mRSSI;
     }
 }

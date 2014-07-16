@@ -27,14 +27,14 @@ class Senz {
     }
 
     private Senz(UUID uuid, String mac, int major, int minor, int mpower, int rssi, Contezt contezt) {
-        this.setBeaconParams(uuid, mac, major, minar, mpower, rssi);
+        this.setBeaconParams(uuid, mac, major, minor, mpower, rssi);
         this.setContezt(contezt);
     }
 
-    public static void fromBeacon(Beacon beacon, SenzReadyCallback cb) {
-        AVUtils.queryContezt(beacon, new AVUtils.QueryCompleteCallback() {
+    public static void fromBeacon(final Beacon beacon, final SenzReadyCallback cb) {
+        AVUtils.queryContezt(beacon, new AVUtils.QueryConteztCompleteCallback() {
             @Override
-            public void onQueryComplete(Contezt contezt) {
+            public void onComplete(final Contezt contezt) {
                 cb.onSenzReady(new Senz(beacon, contezt));
             }
         });
@@ -65,7 +65,7 @@ class Senz {
     }
 
     public Contezt getContezt() {
-        return this.Contezt;
+        return this.mContezt;
     }
 
     public interface SenzReadyCallback {

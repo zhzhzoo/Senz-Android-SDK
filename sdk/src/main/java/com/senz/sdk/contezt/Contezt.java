@@ -1,12 +1,13 @@
-package com.senz.sdk.contezt
+package com.senz.sdk.contezt;
 
 import java.lang.reflect.Constructor;
-import com.android.os.Parcelable;
+import android.os.Parcelable;
+import android.os.Parcel;
 import com.avos.avoscloud.AVObject;
 import com.senz.sdk.utils.L;
-import com.senz.sdk.Utils.*;
+import com.senz.sdk.Utils;
 
-abstract class Contezt implements Parcelable {
+abstract public class Contezt implements Parcelable {
     public int describeContents() {
         return 0;
     }
@@ -16,18 +17,16 @@ abstract class Contezt implements Parcelable {
         writeToParcelRemaining(out, flags);
     }
 
-    abstract protected void writeToParcelRemaining(Parcel out, int flags) {
-    }
+    abstract protected void writeToParcelRemaining(Parcel out, int flags);
 
-    abstract static String what() {
-    }
+    abstract public String what();
 
-    private static Contezt newInstanceThroughConstructor(String what, Object arg) {
+    private static <T> Contezt newInstanceThroughConstructor(String what, T arg) {
         Class<?> clazz;
         Constructor<?> ctor;
 
         try {
-            clazz = Class.forName("com.senz.sdk.contezt." + capitalize(what()) + "Contezt");
+            clazz = Class.forName("com.senz.sdk.contezt." + Utils.capitalize(what) + "Contezt");
         }
         catch (Exception e) {
             L.wtf("Can't get subclass!", e);
@@ -35,7 +34,7 @@ abstract class Contezt implements Parcelable {
         }
 
         try {
-            ctor = class.getConstructor(arg.getClass());
+            ctor = clazz.getConstructor(arg.getClass());
         }
         catch (Exception e) {
             L.wtf("Can't get constructor!", e);
@@ -43,7 +42,7 @@ abstract class Contezt implements Parcelable {
         }
 
         try {
-            return ctor.newInstance(arg);
+            return (Contezt) ctor.newInstance(arg);
         }
         catch (Exception e) {
             L.wtf("Can't get an instance!", e);
@@ -51,19 +50,19 @@ abstract class Contezt implements Parcelable {
         }
     }
 
-    protected static Contezt fromAVObject(AVObject avo) {
-        return avo == null ? null : NewInstanceThroughConstructor(avo.getString("what"));
+    public static Contezt fromAVObject(AVObject avo) {
+        return avo == null ? null : newInstanceThroughConstructor(avo.getString("what"), avo);
     }
 
-    protected static Contezt fromParcel(Parcel in) {
+    public static Contezt fromParcel(Parcel in) {
         // first element in `in' is `what'
-        return in == null ? null : NewInstanceThroughConstructor(in.readString(), in);
+        return in == null ? null : newInstanceThroughConstructor(in.readString(), in);
     }
 
     public static final Parcelable.Creator<Contezt> CREATOR
             = new Parcelable.Creator<Contezt> () {
         public Contezt createFromParcel(Parcel in) {
-            return FromParcel(in);
+            return fromParcel(in);
         }
 
         public Contezt[] newArray(int size) {

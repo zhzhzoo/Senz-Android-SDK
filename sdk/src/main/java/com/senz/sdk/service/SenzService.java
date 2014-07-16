@@ -2,23 +2,33 @@ package com.senz.sdk.service;
 
 import android.app.AlarmManager;
 import android.app.Service;
+import android.app.PendingIntent;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
 import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Message;
 import android.os.Messenger;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Process;
+import android.os.Parcel;
 import android.os.Looper;
 import android.os.IBinder;
-import android.os.Intent;
+import android.os.RemoteException;
+import android.os.Bundle;
+import android.os.SystemClock;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.Map;
+import java.util.ArrayList;
 import com.senz.sdk.service.TelepathyPeriod;
 import com.senz.sdk.utils.L;
+import com.senz.sdk.Beacon;
 
 public class SenzService extends Service {
 
@@ -27,29 +37,38 @@ public class SenzService extends Service {
     public static final int MSG_TELEPATHY_RESPONSE = 3;
     public static final int MSG_ERROR_RESPONSE = 4;
     public static final int MSG_SET_SCAN_PERIOD = 5;
+    private static final Intent START_SCAN_INTENT = new Intent("startScan");
+    private static final Intent AFTER_SCAN_INTENT = new Intent("afterScan");
     private final Messenger mMessenger;
     private final BluetoothAdapter.LeScanCallback mLeScanCallback;
+    private PendingIntent mStartScanBroadcastPendingIntent;
+    private PendingIntent mAfterScanBroadcastPendingIntent;
     private Messenger mReplyTo;
     private AlarmManager mAlarmManager;
     private BluetoothAdapter mAdapter;
-    private ConcurrentHashMap<Beacon, boolean> mBeaconsInACycle;
-    private ConcurrentHashMap<Beacon, boolean> mBeaconsNearBy;
+    private ConcurrentHashMap<Beacon, Boolean> mBeaconsInACycle;
+    private ConcurrentHashMap<Beacon, Boolean> mBeaconsNearBy;
     private TelepathyPeriod mTelepathyPeriod;
     private Runnable mAfterScanTask;
     private Handler mHandler;
     private HandlerThread mHandlerThread;
+    private BroadcastReceiver mBluetoothBroadcastReceiver;
+    private BroadcastReceiver mStartScanBroadcastReceiver;
+    private BroadcastReceiver mAfterScanBroadcastReceiver;
     private boolean mScanning;
     private boolean mStarted;
 
     public SenzService() {
-        this.mMessenger = new Messenger(new IncomingHandler(null));
-        this.mLeScanCallback = new InternalLeScanCallback(null);
-        this.mSenzesInACycle = new ConcurrentHashMap();
-        this.mSenzesDiscovered = new ConcurrentHashMap();
+        this.mMessenger = new Messenger(new IncomingHandler());
+        this.mLeScanCallback = new InternalLeScanCallback();
+        this.mBeaconsInACycle = new ConcurrentHashMap();
+        this.mBeaconsNearBy = new ConcurrentHashMap();
         this.mTelepathyPeriod = new TelepathyPeriod(TimeUnit.SECONDS.toMillis(1L),
                                                     TimeUnit.SECONDS.toMillis(0L),
                                                     TimeUnit.SECONDS.toMillis(10L));
-        this.mStartCount = new AtomicInteger();
+        this.mStarted = this.mScanning = false;
+        this.mStartScanBroadcastPendingIntent = PendingIntent.getBroadcast(getApplicationContext(), 233, START_SCAN_INTENT, 0);
+        this.mAfterScanBroadcastPendingIntent = PendingIntent.getBroadcast(getApplicationContext(), 233, AFTER_SCAN_INTENT, 0);;
     }
 
     public void onCreate() {
@@ -60,31 +79,31 @@ public class SenzService extends Service {
         this.mAlarmManager = (AlarmManager) getSystemService("alarm");
         BluetoothManager bluetoothManager = (BluetoothManager) getSystemService("bluetooth");
         this.mAdapter = bluetoothManager.getAdapter();
-        this.mAfterScanTask = new AfterScanTask(null);
+        this.mAfterScanTask = new AfterScanTask();
 
         this.mHandlerThread = new HandlerThread("SenzServiceThread", Process.THREAD_PRIORITY_BACKGROUND);
         this.mHandlerThread.start();
         this.mHandler = new Handler(this.mHandlerThread.getLooper());
 
-        this.bluetoothBroadcastReceiver = createBluetoothBroadcastReceiver();
-        this.startScanBroadcastReceiver = createStartScanBroadcastReceiver();
-        this.afterScanBroadcastReceiver = createAfterScanBroadcastReceiver();
-        registerReceiver(this.bluetoothBroadcastReceiver, new IntentFilter("android.bluetooth.adapter.action.STATE_CHANGED"));
-        registerReceiver(this.startScanBroadcastReceiver, new IntentFilter("startScan"));
-        registerReceiver(this.afterScanBroadcastReceiver, new IntentFilter("afterScan"));
+        this.mBluetoothBroadcastReceiver = createBluetoothBroadcastReceiver();
+        this.mStartScanBroadcastReceiver = createStartScanBroadcastReceiver();
+        this.mAfterScanBroadcastReceiver = createAfterScanBroadcastReceiver();
+        registerReceiver(this.mBluetoothBroadcastReceiver, new IntentFilter("android.bluetooth.adapter.action.STATE_CHANGED"));
+        registerReceiver(this.mStartScanBroadcastReceiver, new IntentFilter("startScan"));
+        registerReceiver(this.mAfterScanBroadcastReceiver, new IntentFilter("afterScan"));
     }
 
     public void onDestroy() {
         L.i("Destroying service");
-        unregisterReceiver(this.bluetoothBroadcastReceiver);
-        unregisterReceiver(this.startScanBroadcastReceiver);
-        unregisterReceiver(this.afterScanBroadcastReceiver);
+        unregisterReceiver(this.mBluetoothBroadcastReceiver);
+        unregisterReceiver(this.mStartScanBroadcastReceiver);
+        unregisterReceiver(this.mAfterScanBroadcastReceiver);
 
         if (this.mAdapter != null) {
             stopScanning();
         }
 
-        this.handlerThread.quit();
+        this.mHandlerThread.quit();
 
         super.onDestroy();
     }
@@ -102,7 +121,7 @@ public class SenzService extends Service {
             // TODO: tell manager about the exception
             return;
         }
-        if (!this.mAdapter.startLeScan(this.leScanCallback)) {
+        if (!this.mAdapter.startLeScan(this.mLeScanCallback)) {
             // TODO: tell manager about the exception
             return;
         }
@@ -114,15 +133,24 @@ public class SenzService extends Service {
     private void stopScanning() {
         try {
             this.mScanning = false;
-            this.adapter.stopLeScan(this.leScanCallback);
+            removeAllCallbacks();
+            this.mAdapter.stopLeScan(this.mLeScanCallback);
         }
         catch (Exception e) {
             L.wtf("BluetoothAdapter throws unexpected exception", e);
         }
     }
 
+    private void removeAllCallbacks()
+    {
+        this.mHandler.removeCallbacks(this.mAfterScanTask);
+        this.mAlarmManager.cancel(this.mAfterScanBroadcastPendingIntent);
+        this.mAlarmManager.cancel(this.mStartScanBroadcastPendingIntent);
+    }
+
+
     private void setAlarm(PendingIntent pendingIntent, long delayMillis) {
-        this.alarmManager.set(AlarmManager.ELAPSED_REALTIME_WAKEUP,
+        this.mAlarmManager.set(AlarmManager.ELAPSED_REALTIME_WAKEUP,
                 SystemClock.elapsedRealtime() + delayMillis, pendingIntent);
     }
 
@@ -134,10 +162,10 @@ public class SenzService extends Service {
                     switch(intent.getIntExtra("android.bluetooth.adapter.extra.STATE", -1)) {
 
                         case BluetoothAdapter.STATE_ON:
-                            SenzService.this.handler.post(new Runnable() {
+                            SenzService.this.mHandler.post(new Runnable() {
                                 @Override
                                 public void run() {
-                                    if (SenzService.this.mAssigned) {
+                                    if (SenzService.this.mStarted) {
                                         L.i("Bluetooth ON: start scanning");
                                         SenzService.this.startScanning();
                                     }
@@ -146,7 +174,7 @@ public class SenzService extends Service {
                             break;
 
                         case BluetoothAdapter.STATE_OFF:
-                            SenzService.this.handler.post(new Runnable() {
+                            SenzService.this.mHandler.post(new Runnable() {
                                 @Override
                                 public void run() {
                                     L.i("Bluetooth OFF: stop scanning");
@@ -164,26 +192,26 @@ public class SenzService extends Service {
         return new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                SenzService.this.handler.post(SenzService.this.afterScanCycleTask);
+                SenzService.this.mHandler.post(SenzService.this.mAfterScanTask);
             }
-        }
+        };
     }
 
     private BroadcastReceiver createStartScanBroadcastReceiver() {
         return new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                SenzService.this.handler.post(new Runnable() {
+                SenzService.this.mHandler.post(new Runnable() {
                     @Override
                     public void run() {
                         SenzService.this.startScanning();
                     }
                 });
             }
-        }
+        };
     }
 
-    private class InternalLeScanCallback implements LeScanCallback {
+    private class InternalLeScanCallback implements BluetoothAdapter.LeScanCallback {
         @Override
         public void onLeScan(BluetoothDevice device, int rssi, byte[] scanRecord) {
             Beacon beacon = Beacon.fromLeScan(device, rssi, scanRecord);
@@ -202,9 +230,9 @@ public class SenzService extends Service {
             final int what = msg.what;
             final Bundle bundle = msg.getData();
             final Messenger replyTo = msg.replyTo;
-            SenzService.this.handler.post(new Runnable() {
+            SenzService.this.mHandler.post(new Runnable() {
                 @Override
-                public void Run() {
+                public void run() {
                     switch (what) {
                         case MSG_START_TELEPATHY:
                             SenzService.this.mStarted = true;
@@ -217,8 +245,8 @@ public class SenzService extends Service {
                             break;
                         case MSG_SET_SCAN_PERIOD:
                             bundle.setClassLoader(TelepathyPeriod.class.getClassLoader());
-                            SenzService.this.mScanPeriod = (TelepathyPeriod) bundle.getParcelable("telepathyPeriod");
-                            L.d("Setting scan period: " + SenzService.this.mScanPeriod);
+                            SenzService.this.mTelepathyPeriod = (TelepathyPeriod) bundle.getParcelable("telepathyPeriod");
+                            L.d("Setting scan period: " + SenzService.this.mTelepathyPeriod);
                             break;
                     }
                 }
@@ -226,14 +254,14 @@ public class SenzService extends Service {
         }
     }
 
-    private class AfterScanCycleTask implements Runnable {
+    private class AfterScanTask implements Runnable {
         @Override
         public void run() {
             SenzService.this.stopScanning();
 
             ArrayList<Beacon> beacons = new ArrayList<Beacon>();
             Message response = Message.obtain(null, MSG_TELEPATHY_RESPONSE);
-            for (Map.Entry<Beacon, boolean> e : SenzService.this.mBeaconsInACycle)
+            for (Map.Entry<Beacon, Boolean> e : SenzService.this.mBeaconsInACycle.entrySet())
                 beacons.add(e.getKey());
             response.getData().putParcelableArrayList("beacons", beacons);
             try {
@@ -244,11 +272,11 @@ public class SenzService extends Service {
             }
 
             SenzService.this.mBeaconsInACycle.clear();
-            if (SenzService.this.mScanPeriod.waitMillis == 0L)
+            if (SenzService.this.mTelepathyPeriod.waitMillis == 0L)
                 SenzService.this.startScanning();
             else
-                SenzService.this.setAlarm(SenzService.this.startScanBroadcastPendingIntent,
-                                          SenzService.this.mScanPeriod.waitMillis);
+                SenzService.this.setAlarm(SenzService.this.mStartScanBroadcastPendingIntent,
+                                          SenzService.this.mTelepathyPeriod.waitMillis);
         }
     }
 };

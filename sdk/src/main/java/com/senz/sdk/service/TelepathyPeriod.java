@@ -1,6 +1,7 @@
 package com.senz.sdk.service;
 
-import android.os.Parcelable
+import android.os.Parcelable;
+import android.os.Parcel;
 
 public class TelepathyPeriod implements Parcelable {
     public final long scanMillis;
@@ -31,7 +32,7 @@ public class TelepathyPeriod implements Parcelable {
     }
 
     public String toString() {
-        return String.format("scan:%d wait:%d GPS:%d", scanMillis, WaitMillis, GPSMillis);
+        return String.format("scan:%d wait:%d GPS:%d", scanMillis, waitMillis, GPSMillis);
     }
 
     public TelepathyPeriod(long scanMillis, long waitMillis, long GPSMillis) {
@@ -40,7 +41,7 @@ public class TelepathyPeriod implements Parcelable {
         this.GPSMillis = GPSMillis;
     }
 
-    public TalepathyPeriod(Parcel in) {
+    public TelepathyPeriod(Parcel in) {
         scanMillis = in.readLong();
         waitMillis = in.readLong();
         GPSMillis = in.readLong();

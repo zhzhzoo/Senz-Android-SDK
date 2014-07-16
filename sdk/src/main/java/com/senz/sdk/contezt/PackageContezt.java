@@ -1,10 +1,11 @@
 package com.senz.sdk.contezt;
 
 import android.os.Parcelable;
+import android.os.Parcel;
 import com.avos.avoscloud.AVObject;
 import com.senz.sdk.contezt.Contezt;
 
-final class PackageContezt extends Contezt implements Parcelable {
+final class PackageContezt extends Contezt {
     String mPackageName;
 
     protected PackageContezt(AVObject avo) {
@@ -17,8 +18,8 @@ final class PackageContezt extends Contezt implements Parcelable {
 
     protected AVObject toAVObject() {
         AVObject avo = new AVObject("contezt");
-        avo.putString("what", this.what());
-        avo.putString("packageName", mPackageName);
+        avo.put("what", this.what());
+        avo.put("packageName", mPackageName);
         return avo;
     }
 
@@ -26,7 +27,7 @@ final class PackageContezt extends Contezt implements Parcelable {
         out.writeString(mPackageName);
     }
 
-    public static String what() {
+    public String what() {
         return "package";
     }
 

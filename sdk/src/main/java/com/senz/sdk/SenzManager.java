@@ -7,6 +7,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
+import android.os.RemoteException;
 import android.os.Message;
 import android.os.Messenger;
 import android.os.Handler;
@@ -14,8 +15,13 @@ import android.os.HandlerThread;
 import android.os.Process;
 import android.os.Looper;
 import android.os.IBinder;
-import com.senz.avos.AVUtils;
-import com.senz.service.SenzService;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Vector;
+import com.senz.sdk.avos.AVUtils;
+import com.senz.sdk.service.SenzService;
+import com.senz.sdk.exception.SenzException;
+import com.senz.sdk.utils.L;
 
 class SenzManager {
     private Context mContext;
@@ -28,7 +34,7 @@ class SenzManager {
     public SenzManager(Context context) throws SenzException {
         this.mContext = context;
         this.mServiceConnection = new InternalServiceConnection();
-        this.mIncomingMessenger = new Messenger(new IncomingHandler(null));
+        this.mIncomingMessenger = new Messenger(new IncomingHandler());
 
         if (!this.hasBluetooth())
             throw new SenzException("No bluetooth!");
@@ -41,7 +47,7 @@ class SenzManager {
         int bluetoothPermission = pm.checkPermission("android.permission.BLUETOOTH", this.mContext.getPackageName());
         int bluetoothAdminPermission = pm.checkPermission("android.permission.BLUETOOTH_ADMIN", this.mContext.getPackageName());
         
-        Intent intent = new Intent(this.context, SenzService.class);
+        Intent intent = new Intent(this.mContext, SenzService.class);
         List resolveInfo = pm.queryIntentServices(intent, 65536);
 
         return (bluetoothPermission == 0) && (bluetoothAdminPermission == 0) && (resolveInfo.size() > 0);
@@ -74,7 +80,7 @@ class SenzManager {
 
         boolean bound = this.mContext.bindService(new Intent(this.mContext, SenzService.class),
                                                   this.mServiceConnection,
-                                                  BIND_AUTO_CREATE);
+                                                  Context.BIND_AUTO_CREATE);
         if (!bound) {
             L.e("Could not bind service: make sure that com.senz.sdk.service.SenzService is declared in AndroidManifest.xml");
             throw new SenzException("Can't bind service");
@@ -86,6 +92,10 @@ class SenzManager {
             return;
         this.mContext.unbindService(this.mServiceConnection);
         this.mServiceMessenger = null;
+    }
+
+    public boolean isConnected() {
+        return this.mServiceMessenger != null;
     }
 
     public void startTelepathy(TelepathyCallback cb) throws RemoteException {
@@ -121,14 +131,14 @@ class SenzManager {
     }
 
     private void respondSenzes(final ArrayList<Beacon> beacons) {
-        final Vector<Senz> senzes = new Vector<Senz>;
+        final Vector<Senz> senzes = new Vector<Senz>();
         for (Beacon beacon : beacons) {
             Senz.fromBeacon(beacon, new Senz.SenzReadyCallback() {
                 @Override
                 public void onSenzReady(Senz senz) {
                     senzes.add(senz);
-                    if (senzes.length == beacons.length)
-                        this.mTelepathyCallback.onDiscover(senzes);
+                    if (senzes.size() == beacons.size())
+                        SenzManager.this.mTelepathyCallback.onDiscover(senzes);
                 }
             });
         }
