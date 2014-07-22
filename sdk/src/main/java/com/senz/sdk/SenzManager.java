@@ -153,7 +153,16 @@ public class SenzManager {
 
     private void respondSenzes(final ArrayList<Beacon> beacons) {
         final Vector<Senz> senzes = new Vector<Senz>();
-        //TODO: respond
+        for (Beacon beacon : beacons) {
+            Senz.fromBeacon(beacon, new Senz.SenzReadyCallback() {
+                @Override
+                public void onSenzReady(Senz senz) {
+                    senzes.add(senz);
+                    if (senzes.size() == beacons.size())
+                        SenzManager.this.mTelepathyCallback.onDiscover(senzes);
+                }
+            });
+        }
     }
 
     private void respondError(String reason) {
