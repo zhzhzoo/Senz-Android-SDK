@@ -7,6 +7,7 @@ import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Bundle;
 import java.util.concurrent.TimeUnit;
+import com.senz.sdk.utils.L;
 
 public class GPSInfo {
 	public static final String TAG = GPSInfo.class.getSimpleName();
@@ -16,6 +17,9 @@ public class GPSInfo {
 	private GPSInfoListener GPSListener;
 	
 	public GPSInfo(Context ctx) {
+        if (ctx == null) {
+            L.d("yes");
+        }
 		locationManager = (LocationManager) ctx.getSystemService(Context.LOCATION_SERVICE);
 		provider = selectProvider();
 	}

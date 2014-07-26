@@ -5,8 +5,9 @@ import java.lang.Thread;
 
 public class Asyncfied {
     public interface Asyncfiable<T> {
-        public T runAndReturn();
+        public T runAndReturn() throws Exception;
         public void onReturn(T t);
+        public void onError(Exception e);
     }
 
     private Asyncfiable mAsyncfied;
@@ -21,7 +22,15 @@ public class Asyncfied {
         new Thread(new Runnable() {
             @Override
             public void run() {
-                Asyncfied.this.mAsyncfied.onReturn(Asyncfied.this.mAsyncfied.runAndReturn());
+                Object ret;
+                try {
+                    ret = Asyncfied.this.mAsyncfied.runAndReturn();
+                }
+                catch (Exception e) {
+                    Asyncfied.this.mAsyncfied.onError(e);
+                    return;
+                }
+                Asyncfied.this.mAsyncfied.onReturn(ret);
             }
         }).start();
     }

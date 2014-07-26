@@ -78,7 +78,6 @@ public class SenzService extends Service {
                                                     TimeUnit.SECONDS.toMillis(0L),
                                                     TimeUnit.MINUTES.toMillis(30L));
         this.mStarted = this.mScanning = false;
-        this.mGPSInfo = new GPSInfo(this);
         this.mGPSInfoListener = new InternalGPSInfoListener();
     }
 
@@ -86,6 +85,8 @@ public class SenzService extends Service {
         super.onCreate();
 
         L.i("Creating service");
+
+        this.mGPSInfo = new GPSInfo(this);
         
         this.mAlarmManager = (AlarmManager) getSystemService("alarm");
         BluetoothManager bluetoothManager = (BluetoothManager) getSystemService("bluetooth");
@@ -118,6 +119,7 @@ public class SenzService extends Service {
         unregisterReceiver(this.mBluetoothBroadcastReceiver);
         unregisterReceiver(this.mStartScanBroadcastReceiver);
         unregisterReceiver(this.mAfterScanBroadcastReceiver);
+        unregisterReceiver(this.mLookNearbyBroadcastReceiver);
 
         if (this.mAdapter != null) {
             stopScanning();
@@ -175,11 +177,20 @@ public class SenzService extends Service {
     private void lookNearby() {
         this.mAlarmManager.cancel(this.mLookNearbyBroadcastPendingIntent);
 
-        Query.senzesFromLocationAsync(this.mLocation, new Query.SenzesReadyCallback() {
-            @Override
-            public void onSenzesReady(ArrayList<Senz> senzes) {
-            }
-        });
+        Query.senzesFromLocationAsync(
+            this.mLocation,
+            new Query.SenzesReadyCallback() {
+                @Override
+                public void onSenzesReady(ArrayList<Senz> senzes) {
+                }
+            },
+            new Query.ErrorHandler() {
+                // on error, wait 1 min then query again
+                @Override
+                public void onError(Exception e) {
+                    setAlarm(SenzService.this.mLookNearbyBroadcastPendingIntent, TimeUnit.MINUTES.toMillis(1));
+                }
+            });
         setAlarm(this.mLookNearbyBroadcastPendingIntent, this.mTelepathyPeriod.GPSMillis);
     }
 
@@ -259,6 +270,13 @@ public class SenzService extends Service {
         };
     }
 
+    private void setAlarmStart() {
+        if (this.mTelepathyPeriod.waitMillis == 0L)
+            this.startScanning();
+        else
+            this.setAlarm(this.mStartScanBroadcastPendingIntent, this.mTelepathyPeriod.waitMillis);
+    }
+
     private BroadcastReceiver createStartScanBroadCastReceiver() {
         return new BroadcastReceiver() {
             @Override
@@ -327,32 +345,41 @@ public class SenzService extends Service {
             final Message response = Message.obtain(null, MSG_TELEPATHY_RESPONSE);
             for (Map.Entry<Beacon, Boolean> e : SenzService.this.mBeaconsInACycle.entrySet())
                 beacons.add(e.getKey());
-            Query.senzesFromBeaconsAsync(beacons, SenzService.this.mLocation, new Query.SenzesReadyCallback() {
-                @Override
-                public void onSenzesReady(ArrayList<Senz> senzes) {
-                    response.getData().putParcelableArrayList("senzes", senzes);
-                    try {
-                        mReplyTo.send(response);
-                    }
-                    catch (RemoteException e) {
-                        L.e("Error while delivering responses", e);
-                    }
+            Query.senzesFromBeaconsAsync(
+                beacons,
+                SenzService.this.mLocation,
+                new Query.SenzesReadyCallback() {
+                    @Override
+                    public void onSenzesReady(ArrayList<Senz> senzes) {
+                        response.getData().putParcelableArrayList("senzes", senzes);
+                        try {
+                            mReplyTo.send(response);
+                        }
+                        catch (RemoteException e) {
+                            L.e("Error while delivering responses", e);
+                        }
 
-                    SenzService.this.mBeaconsInACycle.clear();
-                    if (SenzService.this.mStarted == false)
-                        return;
-                    if (SenzService.this.mTelepathyPeriod.waitMillis == 0L)
-                        SenzService.this.startScanning();
-                    else
-                        SenzService.this.setAlarm(SenzService.this.mStartScanBroadcastPendingIntent, SenzService.this.mTelepathyPeriod.waitMillis);
-                }
-            });
+                        SenzService.this.mBeaconsInACycle.clear();
+                        if (SenzService.this.mStarted == false)
+                            return;
+                        SenzService.this.setAlarmStart();
+                    }
+                },
+                new Query.ErrorHandler() {
+                    // on error resume next
+                    @Override
+                    public void onError(Exception e) {
+                        L.e("query error", e);
+                        SenzService.this.setAlarmStart();
+                    }
+                });
         }
     }
 
     private class InternalGPSInfoListener implements GPSInfo.GPSInfoListener {
         @Override
         public void onGPSInfoChanged(Location location) {
+            L.i("gps info changed: " + location);
             SenzService.this.mLocation = location;
             lookNearby();
         }

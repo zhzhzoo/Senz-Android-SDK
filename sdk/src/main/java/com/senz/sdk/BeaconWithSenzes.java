@@ -7,9 +7,9 @@ import java.util.List;
 import java.util.Map;
 import java.io.IOException;
 import com.senz.sdk.Beacon;
-import com.senz.sdk.utils.Wrapper;
+import com.senz.sdk.utils.Jsonable;
 
-public class BeaconWithSenzes extends Beacon{
+public class BeaconWithSenzes extends Beacon {
     private ArrayList<Senz> mSenzes;
 
     public BeaconWithSenzes(Beacon beacon, ArrayList<Senz> senzes) {
@@ -30,28 +30,44 @@ public class BeaconWithSenzes extends Beacon{
         return this.mSenzes;
     }
 
+    @Override
     public void writeToJson(JsonWriter writer) throws IOException {
-        super.writeToJson(writer, new JsonAppender() {
-            @Override
-            public void doAppend(JsonWriter writer) throws IOException {
-                writer.name("senzes");
-                Senz.writeSenzesIdArray(writer, mSenzes);
-            }
-        });
+        writer.beginObject();
+        this.writeToJsonNoBeginEnd(writer);
+        writer.endObject();
+    }
+
+    public void writeToJsonNoBeginEnd(JsonWriter writer) throws IOException {
+        super.writeToJsonNoBeginEnd(writer);
+        writer.name("senzes");
+        Senz.writeSenzesIdArray(writer, mSenzes);
     }
 
     public static BeaconWithSenzes fromJsonAndSenzesById(JsonReader reader, final Map<String, Senz> senzesById) throws IOException {
-        Beacon beacon;
-        final Wrapper<ArrayList<Senz>> pSenzes = new Wrapper();
+        reader.beginObject();
+        BeaconWithSenzes bws = new BeaconWithSenzes(reader, senzesById);
+        Utils.skipProperties(reader);
+        reader.endObject();
+        return bws;
+    }
 
-        beacon = Beacon.fromJson(reader, new JsonPropertyHook() {
-            @Override
-            public void readProperty(String name, JsonReader reader) throws IOException {
-                if (name == "senzes")
-                    pSenzes.deref = Senz.senzesFromJsonIdArray(reader, senzesById);
+    // doesn't read beginning and ending of object
+    public BeaconWithSenzes(JsonReader reader, final Map<String, Senz> senzesById) throws IOException {
+        super(reader);
+        int remaining = 1;
+        String name;
+
+        while (remaining != 0 && reader.hasNext()) {
+            name = reader.nextName();
+            remaining--;
+            switch (name) {
+                case "senzes":
+                    this.mSenzes = Senz.senzesFromJsonIdArray(reader, senzesById);
+                    break;
+                default:
+                    remaining++;
+                    reader.skipValue();
             }
-        });
-
-        return new BeaconWithSenzes(beacon, pSenzes.deref);
+        }
     }
 }

@@ -1,27 +1,25 @@
-package com.senz.sdk.contezt;
+package com.senz.sdk.content;
 
 import android.os.Parcelable;
 import android.os.Parcel;
 import android.util.JsonReader;
 import android.util.JsonWriter;
 import java.io.IOException;
-import com.senz.sdk.Senz;
+import com.senz.sdk.content.Content;
 
-final class PackageSenz extends Senz {
+final public class PackageContent extends Content {
     String mPackageName;
 
     @Override
     public String toString() {
-        return String.format("package contezt %s", mPackageName);
+        return String.format("package senz %s", mPackageName);
     }
 
-    protected PackageSenz(String id, Parcel in) {
-        super(id);
+    public PackageContent(Parcel in) {
         this.mPackageName = in.readString();
     }
 
-    protected PackageSenz(String id, JsonReader reader) throws IOException {
-        super(id);
+    public PackageContent(JsonReader reader) throws IOException {
         reader.beginObject();
         switch(reader.nextName()) {
             case "name":
@@ -33,25 +31,23 @@ final class PackageSenz extends Senz {
         reader.endObject();
     }
 
-    protected void writeToJsonRemaining(JsonWriter writer) throws IOException {
+    public void writeToJson(JsonWriter writer) throws IOException {
         writer.beginObject();
         writer.name("name").value(mPackageName);
         writer.endObject();
     }
 
-    protected void writeToParcelRemaining(Parcel out, int flags) {
+    @Override
+    public void writeToParcel(Parcel out, int flags) {
         out.writeString(mPackageName);
     }
 
+    @Override
     public String what() {
         return "package";
     }
 
     public String getPackageName() {
         return mPackageName;
-    }
-
-    public boolean correct() {
-        return mPackageName != null;
     }
 }

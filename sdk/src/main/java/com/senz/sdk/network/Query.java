@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Collection;
+import java.io.IOException;
 import com.senz.sdk.Senz;
 import com.senz.sdk.Beacon;
 import com.senz.sdk.BeaconWithSenzes;
@@ -28,7 +29,7 @@ public class Query {
             hs.add(t);
     }
 
-    static public ArrayList<Senz> senzesFromBeacons(Collection<Beacon> beacons, Location lastBeen) {
+    static public ArrayList<Senz> senzesFromBeacons(Collection<Beacon> beacons, Location lastBeen) throws IOException {
         HashSet<Senz> result = new HashSet<Senz>();
         ArrayList<Beacon> toQueryServer = new ArrayList<Beacon>();
 
@@ -48,7 +49,7 @@ public class Query {
         return new ArrayList<Senz>(result);
     }
 
-    static public ArrayList<Senz> senzesFromLocation(Location location) {
+    static public ArrayList<Senz> senzesFromLocation(Location location) throws IOException {
         HashSet<Senz> result = new HashSet<Senz>();
         ArrayList<BeaconWithSenzes> bwss = Network.queryLocation(location);
         Cache.addBeaconsWithSenzes(bwss);
@@ -57,10 +58,10 @@ public class Query {
         return new ArrayList<Senz>(result);
     }
 
-    static public void senzesFromBeaconsAsync(final Collection<Beacon> beacons, final Location location, final SenzesReadyCallback cb) {
+    static public void senzesFromBeaconsAsync(final Collection<Beacon> beacons, final Location location, final SenzesReadyCallback cb, final ErrorHandler eh) {
         Asyncfied.runAsyncfiable(new Asyncfied.Asyncfiable<ArrayList<Senz>>() {
             @Override
-            public ArrayList<Senz> runAndReturn() {
+            public ArrayList<Senz> runAndReturn() throws IOException {
                 return senzesFromBeacons(beacons, location);
             }
 
@@ -68,13 +69,18 @@ public class Query {
             public void onReturn(ArrayList<Senz> result) {
                 cb.onSenzesReady(result);
             }
+
+            @Override
+            public void onError(Exception e) {
+                eh.onError(e);
+            }
         });
     }
 
-    static public void senzesFromLocationAsync(final Location location, final SenzesReadyCallback cb) {
+    static public void senzesFromLocationAsync(final Location location, final SenzesReadyCallback cb, final ErrorHandler eh) {
         Asyncfied.runAsyncfiable(new Asyncfied.Asyncfiable<ArrayList<Senz>>() {
             @Override
-            public ArrayList<Senz> runAndReturn() {
+            public ArrayList<Senz> runAndReturn() throws IOException {
                 return senzesFromLocation(location);
             }
 
@@ -82,10 +88,19 @@ public class Query {
             public void onReturn(ArrayList<Senz> result) {
                 cb.onSenzesReady(result);
             }
+
+            @Override
+            public void onError(Exception e) {
+                eh.onError(e);
+            }
         });
     }
 
     public interface SenzesReadyCallback {
         public void onSenzesReady(ArrayList<Senz> senzes);
+    }
+    
+    public interface ErrorHandler {
+        public void onError(Exception e);
     }
 }

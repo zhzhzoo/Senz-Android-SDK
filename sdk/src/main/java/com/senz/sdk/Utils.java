@@ -1,5 +1,13 @@
 package com.senz.sdk;
 
+import android.util.JsonReader;
+import android.util.JsonWriter;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.lang.reflect.Method;
+import com.senz.sdk.utils.Jsonable;
+
 public class Utils {
     public static long longFrom8Bytes(byte b7, byte b6, byte b5, byte b4, byte b3, byte b2, byte b1, byte b0) {
         long l7 = unsignedByteToLong(b7);
@@ -33,5 +41,30 @@ public class Utils {
         if (s == null)
             throw new NullPointerException();
         return s.substring(0, 1).toUpperCase().concat(s.substring(1));
+    }
+
+    public static <T extends Jsonable> void writeToJsonArray(JsonWriter writer, Collection<T> ts) throws IOException {
+        writer.beginArray();
+        for (T t : ts)
+            t.writeToJson(writer);
+        writer.endArray();
+    }
+
+    public static <T extends Jsonable> ArrayList<T> readFromJsonArray(JsonReader reader, Jsonable.Creator<T> creator) throws IOException {
+        ArrayList<T> ts = new ArrayList<T>();
+
+        reader.beginArray();
+        while (reader.hasNext())
+            ts.add(creator.createFromJson(reader));
+        reader.endArray();
+
+        return ts;
+    }
+
+    public static void skipProperties(JsonReader reader) throws IOException {
+        while (reader.hasNext()) {
+            reader.nextName();
+            reader.skipValue();
+        }
     }
 };

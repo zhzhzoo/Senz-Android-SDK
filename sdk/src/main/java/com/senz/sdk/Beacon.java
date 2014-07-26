@@ -11,8 +11,9 @@ import java.util.Map;
 import java.util.ArrayList;
 import java.io.IOException;
 import com.senz.sdk.Utils;
+import com.senz.sdk.utils.Jsonable;
 
-public class Beacon implements Parcelable {
+public class Beacon implements Parcelable, Jsonable {
 
     private UUID mUUID;
     private String mMAC;
@@ -42,29 +43,38 @@ public class Beacon implements Parcelable {
         return 0;
     }
 
-    public interface JsonAppender {
-        public void doAppend(JsonWriter writer) throws IOException;
+    @Override
+    public void writeToJson(JsonWriter writer) throws IOException {
+        writer.beginObject();
+        this.writeToJsonNoBeginEnd(writer);
+        writer.endObject();
     }
 
-    public void writeToJson(JsonWriter writer, JsonAppender appender) throws IOException {
-        writer.beginObject();
+    public void writeToJsonNoBeginEnd(JsonWriter writer) throws IOException {
         writer.name("uuid").value(this.getUUID().toString());
         writer.name("mac").value(this.getMAC().toString());
         writer.name("major").value(this.getMajor());
         writer.name("minor").value(this.getMinor());
         writer.name("mpower").value(this.getMPower());
         writer.name("rssi").value(this.getRSSI());
-        if (appender != null)
-            appender.doAppend(writer);
-        writer.endObject();
     }
+
+    public static final Jsonable.Creator<Beacon> JsonCREATOR
+        = new Jsonable.Creator<Beacon>() {
+            @Override
+            public Beacon createFromJson(JsonReader in) throws IOException {
+                return Beacon.fromJson(in);
+            }
+        };
 
     public static final Parcelable.Creator<Beacon> CREATOR
         = new Parcelable.Creator<Beacon>() {
+            @Override
             public Beacon createFromParcel(Parcel in) {
                 return new Beacon(in);
             }
 
+            @Override
             public Beacon[] newArray(int size) {
                 return new Beacon[size];
             }
@@ -82,49 +92,45 @@ public class Beacon implements Parcelable {
         this.mRSSI = in.readInt();
     }
 
-    public interface JsonPropertyHook {
-        public void readProperty(String name, JsonReader reader) throws IOException;
-    }
-
     public static Beacon fromJson(JsonReader reader) throws IOException {
-        return Beacon.fromJson(reader, null);
+        reader.beginObject();
+        Beacon beacon = new Beacon(reader);
+        Utils.skipProperties(reader);
+        reader.endObject();
+        return beacon;
     }
 
-    public static Beacon fromJson(JsonReader reader, JsonPropertyHook pr) throws IOException {
-        UUID uuid = null;
-        String mac = null, name = null;
-        int major = 0, minor = 0, mpower = 0, rssi = 0;
-
-        reader.beginObject();
-        while (reader.hasNext()) {
+    // doesn't read begin and end of object
+    public Beacon(JsonReader reader) throws IOException {
+        String name;
+        int remaining = 6;
+        while (reader.hasNext() && remaining != 0) {
             name = reader.nextName();
+            remaining--;
             switch (name) {
                 case "uuid":
-                    uuid = UUID.fromString(reader.nextString());
+                    this.mUUID = UUID.fromString(reader.nextString());
                     break;
                 case "mac":
-                    mac = reader.nextString();
+                    this.mMAC = reader.nextString();
                     break;
                 case "major":
-                    major = reader.nextInt();
+                    this.mMajor = reader.nextInt();
                     break;
                 case "minor":
-                    minor = reader.nextInt();
+                    this.mMinor = reader.nextInt();
                     break;
                 case "mpower":
-                    mpower = reader.nextInt();
+                    this.mMPower = reader.nextInt();
                     break;
                 case "rssi":
-                    rssi = reader.nextInt();
+                    this.mRSSI = reader.nextInt();
                     break;
                 default:
-                    if (pr != null)
-                        pr.readProperty(name, reader);
+                    remaining++;
+                    reader.skipValue();
             }
         }
-        reader.endObject();
-
-        return new Beacon(uuid, mac, major, minor, mpower, rssi);
     }
 
     public Beacon(Beacon another) {

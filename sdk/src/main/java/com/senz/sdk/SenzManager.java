@@ -80,6 +80,8 @@ public class SenzManager {
     }
 
     public void init() throws SenzException {
+        L.i("initializing senz manager");
+
         if (!this.hasBluetooth())
             throw new SenzException("No Bluetooth!");
         if (!this.bluetoothEnabled())
@@ -116,8 +118,6 @@ public class SenzManager {
 
         if (isConnected())
             internalStartTelepathy();
-        else
-            throw new SenzException("Not initialized yet!");
     }
 
     private void internalStartTelepathy() {
@@ -151,18 +151,8 @@ public class SenzManager {
         this.mErrorHandler = h;
     }
 
-    private void respondSenzes(final ArrayList<Beacon> beacons) {
-        final Vector<Senz> senzes = new Vector<Senz>();
-        for (Beacon beacon : beacons) {
-            Senz.fromBeacon(beacon, new Senz.SenzReadyCallback() {
-                @Override
-                public void onSenzReady(Senz senz) {
-                    senzes.add(senz);
-                    if (senzes.size() == beacons.size())
-                        SenzManager.this.mTelepathyCallback.onDiscover(senzes);
-                }
-            });
-        }
+    private void respondSenzes(final ArrayList<Senz> senzes) {
+        SenzManager.this.mTelepathyCallback.onDiscover(senzes);
     }
 
     private void respondError(String reason) {
@@ -177,8 +167,8 @@ public class SenzManager {
         public void handleMessage(Message msg) {
             switch (msg.what) {
                 case SenzService.MSG_TELEPATHY_RESPONSE:
-                    ArrayList<Beacon> beacons = msg.getData().getParcelableArrayList("beacons");
-                    SenzManager.this.respondSenzes(beacons);
+                    ArrayList<Senz> senzes = msg.getData().getParcelableArrayList("senzes");
+                    SenzManager.this.respondSenzes(senzes);
                     break;
                 case SenzService.MSG_ERROR_RESPONSE:
                     String reason = msg.getData().getString("reason");
