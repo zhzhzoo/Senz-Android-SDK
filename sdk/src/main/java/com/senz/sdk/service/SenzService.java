@@ -33,7 +33,7 @@ import com.senz.sdk.network.Query;
 import com.senz.sdk.utils.L;
 import com.senz.sdk.Beacon;
 import com.senz.sdk.Senz;
-import com.senz.sdk.BeaconWithSenzes;
+import com.senz.sdk.BeaconWithSenz;
 
 public class SenzService extends Service {
 
@@ -179,9 +179,9 @@ public class SenzService extends Service {
 
         Query.senzesFromLocationAsync(
             this.mLocation,
-            new Query.SenzesReadyCallback() {
+            new Query.SenzReadyCallback() {
                 @Override
-                public void onSenzesReady(ArrayList<Senz> senzes) {
+                public void onSenzReady(ArrayList<Senz> senzes) {
                 }
             },
             new Query.ErrorHandler() {
@@ -348,9 +348,9 @@ public class SenzService extends Service {
             Query.senzesFromBeaconsAsync(
                 beacons,
                 SenzService.this.mLocation,
-                new Query.SenzesReadyCallback() {
+                new Query.SenzReadyCallback() {
                     @Override
-                    public void onSenzesReady(ArrayList<Senz> senzes) {
+                    public void onSenzReady(ArrayList<Senz> senzes) {
                         response.getData().putParcelableArrayList("senzes", senzes);
                         try {
                             mReplyTo.send(response);

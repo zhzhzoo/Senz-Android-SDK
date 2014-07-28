@@ -1,4 +1,4 @@
-package com.senz.sdk;
+
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothManager;
@@ -19,10 +19,13 @@ import android.os.Build;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Vector;
+import java.util.HashMap;
+import java.util.Map.Entry;
 import com.senz.sdk.Senz;
 import com.senz.sdk.service.SenzService;
 import com.senz.sdk.exception.SenzException;
 import com.senz.sdk.utils.L;
+import com.senz.filter.Filter;
 
 public class SenzManager {
     private Context mContext;
@@ -32,6 +35,8 @@ public class SenzManager {
     private Messenger mIncomingMessenger;
     private ServiceConnection mServiceConnection;
     private boolean mStarted;
+    private HashMap<Senz, long> mLastSeen;
+    private Filter mFilter;
 
     public SenzManager(Context context) throws SenzException {
         this.mContext = context;
@@ -151,7 +156,17 @@ public class SenzManager {
         this.mErrorHandler = h;
     }
 
-    private void respondSenzes(final ArrayList<Senz> senzes) {
+    private void reportUnseenAndUpdateTime(ArrayList<Senz> senzes) {
+        long now = System.currentTimeMillis();
+        ArrayList<Senz> unseens;
+        for (Senz senz : senzes)
+            this.mLastSeen.put(senz, now);
+        for (Entry<Senz, long> entry : this.mLastSeen.entrySet())
+            unseens.add(entry.getKey());
+        this.mTelepathyCallback.onLeave(unseens);
+    }
+
+    private void respondSenz(final ArrayList<Senz> senzes) {
         SenzManager.this.mTelepathyCallback.onDiscover(senzes);
     }
 
@@ -168,7 +183,8 @@ public class SenzManager {
             switch (msg.what) {
                 case SenzService.MSG_TELEPATHY_RESPONSE:
                     ArrayList<Senz> senzes = msg.getData().getParcelableArrayList("senzes");
-                    SenzManager.this.respondSenzes(senzes);
+                    SenzManager.this.reportUnseenAndUpdateTime(senzes);
+                    SenzManager.this.respondSenz(this.mFilter.filter(senzes));
                     break;
                 case SenzService.MSG_ERROR_RESPONSE:
                     String reason = msg.getData().getString("reason");
@@ -198,6 +214,7 @@ public class SenzManager {
 
     public interface TelepathyCallback {
         public void onDiscover(List<Senz> senzes);
+        public void onLeave(List<Senz> senzes);
     }
 
     public interface ErrorHandler {

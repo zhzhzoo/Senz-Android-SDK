@@ -2,9 +2,12 @@ package com.senz.sdk;
 
 import android.util.JsonReader;
 import android.util.JsonWriter;
+import android.os.Parcel;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.lang.reflect.Method;
 import com.senz.sdk.utils.Jsonable;
 
@@ -59,6 +62,39 @@ public class Utils {
         reader.endArray();
 
         return ts;
+    }
+
+    public static void writeParcelStringMap(Parcel out, Map<String, String> map) {
+        Collection<Entry<String, String>> entrySet = map.entrySet();
+        out.writeInt(entrySet.size());
+        for (Entry<String, String> entry : entrySet) {
+            out.writeString(entry.getKey());
+            out.writeString(entry.getValue());
+        }
+    }
+
+    public static void readParcelStringMap(Map<String, String> map, Parcel in) {
+        int n = in.readInt();
+        for (int i = 0; i < n; i++) {
+            String k = in.readString();
+            String v = in.readString();
+            map.put(k, v);
+        }
+    }
+
+    public static void writeStringMapAsJsonObject(JsonWriter writer, Map<String, String> map) throws IOException {
+        writer.beginObject();
+        for (Entry<String, String> entry : map.entrySet()) {
+            writer.name(entry.getKey()).value(entry.getValue());
+        }
+        writer.endObject();
+    }
+
+    public static void readJsonStringMap(JsonReader reader, Map<String, String> map) throws IOException {
+        reader.beginObject();
+        while(reader.hasNext())
+            map.put(reader.nextName(), reader.nextString());
+        reader.endObject();
     }
 
     public static void skipProperties(JsonReader reader) throws IOException {

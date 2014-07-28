@@ -3,6 +3,7 @@ package com.senz.sdk.network;
 import android.location.Location;
 import android.util.JsonReader;
 import android.util.JsonWriter;
+import android.util.Pair;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -18,7 +19,7 @@ import java.util.concurrent.TimeUnit;
 import com.senz.sdk.Senz;
 import com.senz.sdk.Utils;
 import com.senz.sdk.Beacon;
-import com.senz.sdk.BeaconWithSenzes;
+import com.senz.sdk.BeaconWithSenz;
 
 public class Network {
     private static String queryUrl = "https://cn.avoscloud.com/1/functions/";
@@ -63,42 +64,52 @@ public class Network {
         writer.close();
     }
 
-    private static HashMap<String, Senz> readSenzHashMapFromJsonArray(JsonReader reader) throws IOException {
+    private static HashMap<String, Senz> readSenzHashMapFromJsonObject(JsonReader reader) throws IOException {
         HashMap<String, Senz> msenz = new HashMap<String, Senz>();
-        reader.beginArray();
-        while (reader.hasNext()) {
-            Senz next = Senz.fromJson(reader);
-            msenz.put(next.id(), next);
-        }
-        reader.endArray();
+        reader.beginObject();
+        while (reader.hasNext())
+            msenz.put(reader.nextName(), Senz.fromJson(reader));
+        reader.endObject();
         return msenz;
     }
 
-    private static ArrayList<BeaconWithSenzes> readBeaconWithSenzesArrayListFromJsonArrayAndSenzesById(JsonReader reader, Map<String, Senz> senzesById) throws IOException {
-        ArrayList<BeaconWithSenzes> bwss = new ArrayList<BeaconWithSenzes>();
+    private static ArrayList<BeaconWithSenz> readBeaconWithSenzArrayListFromJsonArrayAndSenzById(JsonReader reader, Map<String, Senz> senzesById) throws IOException {
+        ArrayList<BeaconWithSenz> bwss = new ArrayList<BeaconWithSenz>();
         reader.beginArray();
-        while (reader.hasNext()) {
-            BeaconWithSenzes next = BeaconWithSenzes.fromJsonAndSenzesById(reader, senzesById);
-            bwss.add(next);
-        }
+        while (reader.hasNext())
+            bwss.add(BeaconWithSenz.fromJsonAndSenzById(reader, senzesById));
         reader.endArray();
         return bwss;
     }
 
-    private static ArrayList<BeaconWithSenzes> readResult(JsonReader reader) throws IOException {
+    private static ArrayList<Pair<Beacon, String>> readBeaconSenzIdPairArrayListFromJsonArray(JsonReader reader) throws IOException {
+        ArrayList<Pair<Beacon, String>> tmp = new ArrayList<Pair<Beacon, String>>();
+        reader.beginArray();
+        while (reader.hasNext()) {
+            tmp.add(BeaconWithSenz.beaconSenzIdPairFromJson(reader));
+        }
+        reader.endArray();
+        return tmp;
+    }
+
+    private static ArrayList<BeaconWithSenz> readResult(JsonReader reader) throws IOException {
         String name;
         HashMap<String, Senz> senzesById = null;
-        ArrayList<BeaconWithSenzes> bwss = null;
+        ArrayList<BeaconWithSenz> bwss = null;
+        ArrayList<Pair<Beacon, String>> tmp = null;
 
         reader.beginObject();
         while (reader.hasNext()) {
             name = reader.nextName();
             switch (name) {
                 case "senzes":
-                    senzesById = readSenzHashMapFromJsonArray(reader);
+                    senzesById = readSenzHashMapFromJsonObject(reader);
                     break;
                 case "beacons":
-                    bwss = readBeaconWithSenzesArrayListFromJsonArrayAndSenzesById(reader, senzesById);
+                    if (senzesById != null)
+                        bwss = readBeaconWithSenzArrayListFromJsonArrayAndSenzById(reader, senzesById);
+                    else
+                        tmp = readBeaconSenzIdPairArrayListFromJsonArray(reader);
                     break;
             }
         }
@@ -144,7 +155,7 @@ public class Network {
     }
 
 
-    public static ArrayList<BeaconWithSenzes> queryBeacons(final Collection<Beacon> toQuery, final Location lastBeen) throws IOException {
+    public static ArrayList<BeaconWithSenz> queryBeacons(final Collection<Beacon> toQuery, final Location lastBeen) throws IOException {
         return doQuery(
                 new URL(queryUrl + "queryWithBeacon"),
                 new QueryWriter() {
@@ -153,15 +164,15 @@ public class Network {
                         writeBeaconsQueryPost(new JsonWriter(new OutputStreamWriter(os)), toQuery, lastBeen);
                     }
                 },
-                new ResultReader<ArrayList<BeaconWithSenzes>>() {
+                new ResultReader<ArrayList<BeaconWithSenz>>() {
                     @Override
-                    public ArrayList<BeaconWithSenzes> read(InputStream is) throws IOException {
+                    public ArrayList<BeaconWithSenz> read(InputStream is) throws IOException {
                         return readResult(new JsonReader(new InputStreamReader(is)));
                     }
                 });
     }
 
-    public static ArrayList<BeaconWithSenzes> queryLocation(final Location location) throws IOException {
+    public static ArrayList<BeaconWithSenz> queryLocation(final Location location) throws IOException {
         return doQuery(
                 new URL(queryUrl + "queryWithLocation"),
                 new QueryWriter() {
@@ -170,9 +181,9 @@ public class Network {
                         writeLocationQueryPost(new JsonWriter(new OutputStreamWriter(os)), location);
                     }
                 },
-                new ResultReader<ArrayList<BeaconWithSenzes>>() {
+                new ResultReader<ArrayList<BeaconWithSenz>>() {
                     @Override
-                    public ArrayList<BeaconWithSenzes> read(InputStream is) throws IOException {
+                    public ArrayList<BeaconWithSenz> read(InputStream is) throws IOException {
                         return readResult(new JsonReader(new InputStreamReader(is)));
                     }
                 });
