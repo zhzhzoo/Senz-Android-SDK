@@ -1,9 +1,12 @@
-package com.senz.sdk.network;
+package com.senz.sdk.filter.implementations;
 
 import android.os.SystemClock;
+import android.content.Context;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import com.senz.sdk.Senz;
 import com.senz.sdk.filter.FilterImplementation;
 
@@ -12,14 +15,15 @@ public class MinInterval implements FilterImplementation {
     long lastSwapped;
     final long expire;
 
-    public void init(Context context, Object ...extra) {
+    public MinInterval(long e) {
+        this.expire = e;
+    }
+
+    @Override
+    public void init(Context context) {
         this.current = new HashMap<Senz, Long>();
         this.previous = new HashMap<Senz, Long>();
         this.lastSwapped = SystemClock.uptimeMillis();
-        if (extra.length >= 1 && extra[0] instanceof Number)
-            this.expire = ((Number) extra[0]).longValue();
-        else
-            this.expire = TimeUnit.MINUTES.toMillis(30);
     }
 
     private void swap() {
@@ -34,12 +38,12 @@ public class MinInterval implements FilterImplementation {
     }
 
     public Set<Senz> filter(Set<Senz> senzes) {
-        HashSet<Senz> result;
+        HashSet<Senz> result = new HashSet<Senz>();
         Long lastVisited;
         long now = SystemClock.uptimeMillis();
 
         swap();
-        for (Senz senz : senzs) {
+        for (Senz senz : senzes) {
             lastVisited = this.current.get(senz);
             if (lastVisited != null)
                 continue;
@@ -55,4 +59,11 @@ public class MinInterval implements FilterImplementation {
 
         return result;
     }
+
+    public static final FilterImplementation.FilterGetter GETTER = new FilterImplementation.FilterGetter() {
+        @Override
+        public FilterImplementation get() {
+            return new MinInterval(TimeUnit.MINUTES.toMillis(30));
+        }
+    };
 }

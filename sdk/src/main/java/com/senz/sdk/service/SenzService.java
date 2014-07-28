@@ -353,6 +353,7 @@ public class SenzService extends Service {
                     public void onSenzReady(ArrayList<Senz> senzes) {
                         response.getData().putParcelableArrayList("senzes", senzes);
                         try {
+                            L.i("query complete, got " + senzes.size() + " senzes");
                             mReplyTo.send(response);
                         }
                         catch (RemoteException e) {

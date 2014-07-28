@@ -44,6 +44,26 @@ public class Beacon implements Parcelable, Jsonable {
     }
 
     @Override
+    public int hashCode() {
+        return ((mUUID.hashCode() * 31 * 31 + mMajor) * 31 * 31 + mMinor) * 31 * 31 * 31 * 31 * 31 * 31 * 31 * 31 * 31 + mMAC.hashCode();
+    }
+    
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj)
+            return true;
+        if (!(obj instanceof Beacon))
+            return false;
+
+        Beacon that = (Beacon) obj;
+        if (!(this.mMinor == that.mMinor && this.mMajor == that.mMajor))
+            return false;
+        if (!(this.mMAC.equals(that.mMAC) && this.mUUID.equals(that.mUUID)))
+            return false;
+        return true;
+    }
+
+    @Override
     public void writeToJson(JsonWriter writer) throws IOException {
         writer.beginObject();
         this.writeToJsonNoBeginEnd(writer);

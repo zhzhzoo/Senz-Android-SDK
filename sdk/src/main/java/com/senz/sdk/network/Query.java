@@ -13,6 +13,7 @@ import com.senz.sdk.BeaconWithSenz;
 import com.senz.sdk.network.Cache;
 import com.senz.sdk.network.Network;
 import com.senz.sdk.utils.Asyncfied;
+import com.senz.sdk.utils.L;
 
 public class Query {
     static private <T> void addAllToHashSet(Collection<T> c, HashSet<T> hs) {
@@ -52,16 +53,19 @@ public class Query {
         Asyncfied.runAsyncfiable(new Asyncfied.Asyncfiable<ArrayList<Senz>>() {
             @Override
             public ArrayList<Senz> runAndReturn() throws IOException {
+                L.i("running query");
                 return senzesFromBeacons(beacons, location);
             }
 
             @Override
             public void onReturn(ArrayList<Senz> result) {
+                L.i("query returnning");
                 cb.onSenzReady(result);
             }
 
             @Override
             public void onError(Exception e) {
+                L.i("query beacons error");
                 eh.onError(e);
             }
         });
@@ -81,6 +85,7 @@ public class Query {
 
             @Override
             public void onError(Exception e) {
+                L.i("query location error");
                 eh.onError(e);
             }
         });

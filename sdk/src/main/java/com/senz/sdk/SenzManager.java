@@ -1,4 +1,4 @@
-
+package com.senz.sdk;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothManager;
@@ -25,7 +25,7 @@ import com.senz.sdk.Senz;
 import com.senz.sdk.service.SenzService;
 import com.senz.sdk.exception.SenzException;
 import com.senz.sdk.utils.L;
-import com.senz.filter.Filter;
+import com.senz.sdk.filter.Filter;
 
 public class SenzManager {
     private Context mContext;
@@ -35,7 +35,7 @@ public class SenzManager {
     private Messenger mIncomingMessenger;
     private ServiceConnection mServiceConnection;
     private boolean mStarted;
-    private HashMap<Senz, long> mLastSeen;
+    private HashMap<Senz, Long> mLastSeen;
     private Filter mFilter;
 
     public SenzManager(Context context) throws SenzException {
@@ -158,10 +158,10 @@ public class SenzManager {
 
     private void reportUnseenAndUpdateTime(ArrayList<Senz> senzes) {
         long now = System.currentTimeMillis();
-        ArrayList<Senz> unseens;
+        ArrayList<Senz> unseens = new ArrayList<Senz>();
         for (Senz senz : senzes)
             this.mLastSeen.put(senz, now);
-        for (Entry<Senz, long> entry : this.mLastSeen.entrySet())
+        for (Entry<Senz, Long> entry : this.mLastSeen.entrySet())
             unseens.add(entry.getKey());
         this.mTelepathyCallback.onLeave(unseens);
     }
@@ -184,7 +184,7 @@ public class SenzManager {
                 case SenzService.MSG_TELEPATHY_RESPONSE:
                     ArrayList<Senz> senzes = msg.getData().getParcelableArrayList("senzes");
                     SenzManager.this.reportUnseenAndUpdateTime(senzes);
-                    SenzManager.this.respondSenz(this.mFilter.filter(senzes));
+                    SenzManager.this.respondSenz(SenzManager.this.mFilter.filter(senzes));
                     break;
                 case SenzService.MSG_ERROR_RESPONSE:
                     String reason = msg.getData().getString("reason");

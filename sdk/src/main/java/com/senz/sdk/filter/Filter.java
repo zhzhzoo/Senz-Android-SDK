@@ -1,18 +1,21 @@
 package com.senz.sdk.filter;
 
 import android.content.Context;
+import java.util.ArrayList;
+import java.util.HashSet;
+import com.senz.sdk.Senz;
 import com.senz.sdk.filter.ImplementationList;
 
-class Filter {
+public class Filter {
     Context mContext;
     FilterImplementation mFilterImpls[];
 
     Filter(Context context) {
         this.mContext = context;
-        mFilterImpls = new FilterImplementation[ImplementationList.classes.length];
-        for (int i = 0; i < ImplementationList.classes.length; i++) {
-            mFilterImpls[i] = ImplementationList.classes[i].newInstance();
-            mFilterImpls[i].init(Context);
+        mFilterImpls = new FilterImplementation[ImplementationList.getters.length];
+        for (int i = 0; i < ImplementationList.getters.length; i++) {
+            mFilterImpls[i] = (FilterImplementation) ImplementationList.getters[i].get();
+            mFilterImpls[i].init(context);
         }
     }
 

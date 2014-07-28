@@ -3,3 +3,4 @@
 **/*.swp
 **/build
 sdk/libs
+sdk/gradle.properties

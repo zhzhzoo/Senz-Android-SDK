@@ -14,8 +14,11 @@ import java.io.OutputStream;
 import java.io.InputStream;
 import java.io.OutputStreamWriter;
 import java.io.InputStreamReader;
+import java.io.StringReader;
+import java.io.StringWriter;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
+import com.senz.sdk.utils.L;
 import com.senz.sdk.Senz;
 import com.senz.sdk.Utils;
 import com.senz.sdk.Beacon;
@@ -93,11 +96,30 @@ public class Network {
     }
 
     private static ArrayList<BeaconWithSenz> readResult(JsonReader reader) throws IOException {
-        String name;
+        String name, result = null;
         HashMap<String, Senz> senzesById = null;
         ArrayList<BeaconWithSenz> bwss = null;
         ArrayList<Pair<Beacon, String>> tmp = null;
 
+
+        reader.beginObject();
+        while (reader.hasNext()) {
+            name = reader.nextName();
+            switch (name) {
+                case "result":
+                    result = reader.nextString();
+                    break;
+                default:
+                    reader.skipValue();
+            }
+        }
+        reader.endObject();
+        reader.close();
+
+        if (result == null)
+            throw new ResultNotPresentException();
+
+        reader = new JsonReader(new StringReader(result));
         reader.beginObject();
         while (reader.hasNext()) {
             name = reader.nextName();
@@ -111,6 +133,8 @@ public class Network {
                     else
                         tmp = readBeaconSenzIdPairArrayListFromJsonArray(reader);
                     break;
+                default:
+                    reader.skipValue();
             }
         }
         reader.endObject();
@@ -157,10 +181,13 @@ public class Network {
 
     public static ArrayList<BeaconWithSenz> queryBeacons(final Collection<Beacon> toQuery, final Location lastBeen) throws IOException {
         return doQuery(
-                new URL(queryUrl + "queryWithBeacon"),
+                new URL(queryUrl + "beacons"),
                 new QueryWriter() {
                     @Override
                     public void write(OutputStream os) throws IOException {
+                        StringWriter sw = new StringWriter(100);
+                        writeBeaconsQueryPost(new JsonWriter(sw), toQuery, lastBeen);
+                        L.i(sw.toString());
                         writeBeaconsQueryPost(new JsonWriter(new OutputStreamWriter(os)), toQuery, lastBeen);
                     }
                 },
@@ -174,7 +201,7 @@ public class Network {
 
     public static ArrayList<BeaconWithSenz> queryLocation(final Location location) throws IOException {
         return doQuery(
-                new URL(queryUrl + "queryWithLocation"),
+                new URL(queryUrl + "beacons"),
                 new QueryWriter() {
                     @Override
                     public void write(OutputStream os) throws IOException {
@@ -187,5 +214,8 @@ public class Network {
                         return readResult(new JsonReader(new InputStreamReader(is)));
                     }
                 });
+    }
+
+    public static class ResultNotPresentException extends IOException {
     }
 }

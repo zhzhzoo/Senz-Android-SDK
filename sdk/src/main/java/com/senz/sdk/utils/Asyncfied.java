@@ -2,6 +2,7 @@ package com.senz.sdk.utils;
 
 import java.lang.Runnable;
 import java.lang.Thread;
+import com.senz.sdk.utils.L;
 
 public class Asyncfied {
     public interface Asyncfiable<T> {
@@ -24,12 +25,15 @@ public class Asyncfied {
             public void run() {
                 Object ret;
                 try {
+                    L.i("Async started");
                     ret = Asyncfied.this.mAsyncfied.runAndReturn();
                 }
                 catch (Exception e) {
+                    L.i("Async errored");
                     Asyncfied.this.mAsyncfied.onError(e);
                     return;
                 }
+                L.i("Async returned");
                 Asyncfied.this.mAsyncfied.onReturn(ret);
             }
         }).start();
