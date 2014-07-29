@@ -157,7 +157,10 @@ public class SenzManager {
         for (Senz senz : senzes)
             this.mLastSeen.put(senz, now);
         for (Entry<Senz, Long> entry : this.mLastSeen.entrySet())
-            unseens.add(entry.getKey());
+            if (entry.getValue - now > TimeUnit.SECONDS.toMillis(20))
+                unseens.add(entry.getKey());
+        for (Senz senz : unseens)
+            this.mLastSeen.remove(senz);
         this.mTelepathyCallback.onLeave(unseens);
     }
 
