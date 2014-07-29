@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Vector;
 import java.util.HashMap;
 import java.util.Map.Entry;
+import java.util.concurrent.TimeUnit;
 import com.senz.sdk.Senz;
 import com.senz.sdk.service.SenzService;
 import com.senz.sdk.exception.SenzException;
@@ -163,7 +164,7 @@ public class SenzManager {
         for (Senz senz : senzes)
             this.mLastSeen.put(senz, now);
         for (Entry<Senz, Long> entry : this.mLastSeen.entrySet())
-            if (entry.getValue - now > TimeUnit.SECONDS.toMillis(20))
+            if (entry.getValue() - now > TimeUnit.SECONDS.toMillis(20))
                 unseens.add(entry.getKey());
         for (Senz senz : unseens)
             this.mLastSeen.remove(senz);

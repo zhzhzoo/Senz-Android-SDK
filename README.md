@@ -88,3 +88,10 @@ Senz SDK 会在“发现”周围的 Senz，或“离开” Senz 时回调。当
 里面有最近发现的所有 `Senz`，无论它们是不是在 30 分钟内通过回调方法
 报告过。
 
+
+编译和使用
+----------
+
+下载代码库后，进入 `sdk` 目录，执行 `gradle build`，然后在
+ `sdk/build/outputs/jar` 目录下会产生 `Senz-SDK.jar`，把它放进你的项
+目的 `libs` 目录下即可。

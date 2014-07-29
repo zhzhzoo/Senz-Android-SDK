@@ -19,3 +19,27 @@ android {
         targetCompatibility JavaVersion.VERSION_1_7
     }
 }
+
+task clearJar(type: Delete) {
+    delete 'build/outputs/Senz-SDK.jar'
+    delete 'build/outputs/Senz-SDK-debug.jar'
+}
+
+task debugJar(type: Copy) {
+    from 'build/intermediates/bundles/debug/'
+    into 'build/outputs/jar/'
+    include 'classes.jar'
+    rename 'classes.jar', 'Senz-SDK-debug.jar'
+}
+
+task releaseJar(type: Copy) {
+    from 'build/intermediates/bundles/release/'
+    into 'build/outputs/jar/'
+    include 'classes.jar'
+    rename 'classes.jar', 'Senz-SDK.jar'
+}
+
+debugJar.dependsOn ':packageDebugJar'
+releaseJar.dependsOn ':packageReleaseJar'
+
+build.dependsOn ':debugJar', ':releaseJar'
