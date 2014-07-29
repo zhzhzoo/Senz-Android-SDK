@@ -38,15 +38,10 @@ public class SenzManager {
     private HashMap<Senz, Long> mLastSeen;
     private Filter mFilter;
 
-    public SenzManager(Context context) throws SenzException {
+    public SenzManager(Context context) {
         this.mContext = context;
         this.mServiceConnection = new InternalServiceConnection();
         this.mIncomingMessenger = new Messenger(new IncomingHandler());
-
-        if (!this.hasBluetooth())
-            throw new SenzException("No bluetooth!");
-        if (!this.bluetoothEnabled())
-            throw new SenzException("Bluetooth not enabled!");
     }
 
     public boolean checkPermissions() {
