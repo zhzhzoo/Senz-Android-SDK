@@ -37,11 +37,13 @@ public class SenzManager {
     private boolean mStarted;
     private HashMap<Senz, Long> mLastSeen;
     private Filter mFilter;
+    private ArrayList<Senz> mLastDiscovered;
 
     public SenzManager(Context context) {
         this.mContext = context;
         this.mServiceConnection = new InternalServiceConnection();
         this.mIncomingMessenger = new Messenger(new IncomingHandler());
+        this.mLastDiscovered = new ArrayList<Senz>();
     }
 
     public boolean checkPermissions() {
@@ -151,6 +153,10 @@ public class SenzManager {
         this.mErrorHandler = h;
     }
 
+    public List<Senz> getLastDiscoveredSenzes() {
+        return this.mLastDiscovered;
+    }
+
     private void reportUnseenAndUpdateTime(ArrayList<Senz> senzes) {
         long now = System.currentTimeMillis();
         ArrayList<Senz> unseens = new ArrayList<Senz>();
@@ -165,7 +171,8 @@ public class SenzManager {
     }
 
     private void respondSenz(final ArrayList<Senz> senzes) {
-        SenzManager.this.mTelepathyCallback.onDiscover(senzes);
+        this.mLastDiscovered = senzes;
+        this.mTelepathyCallback.onDiscover(senzes);
     }
 
     private void respondError(String reason) {
