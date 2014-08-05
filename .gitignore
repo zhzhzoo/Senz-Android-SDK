@@ -4,3 +4,4 @@
 **/build
 sdk/libs
 sdk/gradle.properties
+sdk/local.properties
